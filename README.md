@@ -28,13 +28,13 @@ Features:
     ```
 
 4. Open in browser:  
-    [http://localhost:8501](http://localhost:8501)
+    [[http://localhost:8501](http://localhost:8501](https://ai-powered-json-translator.streamlit.app/))
 
 5. Upload your English JSON → Select target languages → Review glossary → Translate → Download translated JSON.
 
 ## ⚡ Hosting
 - Works locally or on your internal network.  
-- Example network URL: `http://172.16.1.186:8501`
+- Example network URL: `[http://172.16.1.186:8501](https://ai-powered-json-translator.streamlit.app/)`
 
 ## ⚠️ Notes
 - Translations use deep-translator (Google NMT unofficial).
