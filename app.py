@@ -1,4 +1,3 @@
-# app.py
 import json
 import re
 import sqlite3
@@ -8,6 +7,8 @@ from typing import Any, Dict, List, Tuple
 import pandas as pd
 import streamlit as st
 from deep_translator import GoogleTranslator
+import time
+from deep_translator import exceptions
 
 st.set_page_config(page_title="JSON Translator Pro", layout="wide")
 
@@ -116,8 +117,7 @@ def translate_string(s: str, target: str, terms_to_preserve: Tuple[str, ...], co
     cache_put(conn, s, target, translated)
     return translated
     
-import time
-from deep_translator import exceptions
+
 
 def translate_with_retry(text, target, terms_to_preserve, conn, retries=5, delay=2):
     for attempt in range(retries):
@@ -258,21 +258,34 @@ with st.sidebar:
     st.header("Settings")
     languages_map = {
         "Arabic (ar)": "ar",
+        "Dutch (nl)": "nl",
         "French (fr)": "fr",
+        "Farsi (fa)": "fa",
         "German (de)": "de",
+        "Greek (el)": "el",
         "Hindi (hi)": "hi",
         "Indonesian (id)": "id",
         "Italian (it)": "it",
+        "Japanese (ja)": "ja",
+        "Korean (ko)": "ko",
         "Malay (ms)": "ms",
         "Mandarin Chinese (zh-CN)": "zh-CN",
-        "Mandarin (Singapore) (zh-SG)": "zh-SG",
+        "Mandarin (Singapore)": "zh-CN",
         "Polish (pl)": "pl",
         "Portuguese (pt)": "pt",
         "Romanian (ro)": "ro",
         "Russian (ru)": "ru",
-        "Spanish (es)": "es"     
+        "Spanish (es)": "es", 
+        "Turkish (tr)": "tr",
+        "Ukrainian (uk)": "uk",
+        "Urdu (ur)": "ur"
+        
+            
     }
-
+    Lang_Fallback={
+         "zh-SG": "zh-CN",
+         "pt-BR":"pt"
+    }
 
     target_lang_labels = list(languages_map.keys())
     chosen_labels = st.multiselect("Target languages", target_lang_labels, default=["Malay (ms)"])
@@ -319,7 +332,24 @@ if uploaded:
         raw = uploaded.read().decode("utf-8")
         original = json.loads(raw)
         st.subheader("Uploaded JSON (full)")
-        st.code(raw)
+        st.markdown(f"""
+        <div style='
+        max-height: 300px;        /* limit height (adjust to 250-400px as needed) */
+        overflow-y: auto;         /* add scrollbar if content is long */
+        border: 1px solid #00ff00;
+        border-radius: 8px;
+        background-color: #000000; /* dark background */
+        color: #00ff00;           /* green text like your screenshot */
+        padding: 10px;
+        font-family: monospace;
+        white-space: pre-wrap;
+        '>
+        {raw}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
         original_flat = flatten_json(original)
     except Exception as e:
         st.error(f"Could not parse JSON: {e}")
@@ -345,7 +375,7 @@ if uploaded and run_btn and original_flat and chosen_targets:
                     "final": ai_flat.get(path, val),
                 })
         review_df = pd.DataFrame(rows)
-        st.header(f"4) Review & Adjust ({review_lang})")
+        st.header(f"Review & Adjust ({review_lang})")
         st.caption("Edit the 'final' column, then click 'Save Final & Download'")
         edited = st.data_editor(
             review_df,
@@ -378,7 +408,24 @@ if uploaded and run_btn and original_flat and chosen_targets:
         with col1:
             if final_pretty:
                 st.subheader(f"Final JSON Preview ({review_lang})")
-                st.code(final_pretty)
+                st.markdown(f"""
+                <div style='
+                max-height: 400px;
+                overflow-y: auto;
+                border: 1px solid #00ff00;
+                border-radius: 8px;
+                padding: 10px;
+                background-color: #000000;  /* dark background */
+                color: #00ff00;             /* light text for visibility */
+                font-family: monospace;
+                white-space: pre-wrap;
+            '>
+            {final_pretty}
+            </div>
+            """,
+            unsafe_allow_html=True
+            )
+
         with col2:
             if final_pretty:
                 st.download_button(
@@ -388,7 +435,7 @@ if uploaded and run_btn and original_flat and chosen_targets:
                     mime="application/json",
                 )
 
-    st.header("Bulk Download (auto)")
+    st.header("Bulk Download")
     for tgt in chosen_targets:
         flat = translated_by_lang[tgt]
         try:
@@ -399,7 +446,7 @@ if uploaded and run_btn and original_flat and chosen_targets:
                 data=pretty,
                 file_name=f"translated_{tgt}.json",
                 mime="application/json",
-                key=f"dl_{tgt}",
+                key=f"download_button_{tgt}"
             )
         except Exception as e:
             st.warning(f"Could not build JSON for {tgt}: {e}")
