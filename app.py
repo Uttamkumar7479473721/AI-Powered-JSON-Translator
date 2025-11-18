@@ -1,4 +1,5 @@
 import json
+import base64
 import re
 import sqlite3
 from pathlib import Path
@@ -80,28 +81,6 @@ def get_translator(target: str) -> GoogleTranslator:
     if target not in _translators:
         _translators[target] = GoogleTranslator(source="en", target=target)
     return _translators[target]
-
-'''def mask_terms(text: str, terms: Tuple[str, ...]):
-    """
-    Mask preserve-terms before translation (case-insensitive exact word match).
-    Returns masked text + placeholder map.
-    """
-    placeholders: Dict[str, str] = {}
-    masked = text
-    for i, term in enumerate(terms):
-        if not term:
-            continue
-        placeholder = f"__TERM_{i}__"
-        masked = re.sub(rf"\b{re.escape(term)}\b", placeholder, masked, flags=re.IGNORECASE)
-        placeholders[placeholder] = term
-    return masked, placeholders
-
-def restore_placeholders(text: str, placeholders: Dict[str, str]) -> str:
-    for p, term in placeholders.items():
-        text = text.replace(p, term)
-    return text
-'''
-import base64
 
 def _b64_encode(s: str) -> str:
     return base64.b64encode(s.encode("utf-8")).decode("ascii")
