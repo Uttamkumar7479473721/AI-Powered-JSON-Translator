@@ -81,7 +81,7 @@ def get_translator(target: str) -> GoogleTranslator:
         _translators[target] = GoogleTranslator(source="en", target=target)
     return _translators[target]
 
-def mask_terms(text: str, terms: Tuple[str, ...]):
+'''def mask_terms(text: str, terms: Tuple[str, ...]):
     """
     Mask preserve-terms before translation (case-insensitive exact word match).
     Returns masked text + placeholder map.
@@ -100,6 +100,70 @@ def restore_placeholders(text: str, placeholders: Dict[str, str]) -> str:
     for p, term in placeholders.items():
         text = text.replace(p, term)
     return text
+'''
+import base64
+
+def _b64_encode(s: str) -> str:
+    return base64.b64encode(s.encode("utf-8")).decode("ascii")
+
+def _b64_decode(s: str) -> str:
+    return base64.b64decode(s.encode("ascii")).decode("utf-8")
+
+def mask_terms(text: str, terms: Tuple[str, ...]) -> Tuple[str, Dict[str,str]]:
+    """
+    Mask preserve-terms before translation using base64-wrapped placeholders.
+    Returns masked text and a map {placeholder: original_term}.
+    """
+    placeholders: Dict[str, str] = {}
+    masked = text
+    for i, term in enumerate(terms):
+        term = term.strip()
+        if not term:
+            continue
+        # build safe placeholder using base64 so translator won't corrupt it
+        b64 = _b64_encode(term)
+        placeholder = f"@@{b64}@@"
+        # replace whole-word matches ignoring case
+        masked = re.sub(rf"\b{re.escape(term)}\b", placeholder, masked, flags=re.IGNORECASE)
+        placeholders[placeholder] = term
+    return masked, placeholders
+
+def restore_placeholders(text: str, placeholders: Dict[str,str]) -> str:
+    """
+    Restore placeholders of form @@<base64>@@ back to original terms.
+    Works even if translator keeps case or minor spacing around.
+    """
+    restored = text
+
+    # First, replace exact placeholders if present
+    for placeholder, original in placeholders.items():
+        if placeholder in restored:
+            restored = restored.replace(placeholder, original)
+
+    # Then catch any base64 tokens preserved but maybe with slight spacing or punctuation.
+    # Find any @@...@@ pattern and try to decode; if decoded value exists in placeholders values, replace.
+    matches = re.findall(r"@@([A-Za-z0-9+/=]+)@@", restored)
+    for b64 in matches:
+        try:
+            dec = _b64_decode(b64)
+        except Exception:
+            continue
+        # Replace all occurrences of @@b64@@ (exact) with decoded term
+        restored = restored.replace(f"@@{b64}@@", dec)
+
+    # As a last defense: if translator inserted spaces inside the placeholder like "@@ b64 @@" or changed separators,
+    # try to catch patterns like "@@\s*b64\s*@@"
+    def replace_loose(m):
+        b64 = re.sub(r"\s+", "", m.group(1))
+        try:
+            dec = _b64_decode(b64)
+            return dec
+        except Exception:
+            return m.group(0)  # leave as-is
+
+    restored = re.sub(r"@@\s*([A-Za-z0-9+/=\s]+)\s*@@", replace_loose, restored)
+
+    return restored
 
 def translate_string(s: str, target: str, terms_to_preserve: Tuple[str, ...], conn: sqlite3.Connection) -> str:
     if not s:
